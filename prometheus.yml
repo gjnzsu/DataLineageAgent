@@ -1,0 +1,12 @@
+# Optional: use with a local Prometheus binary to scrape the pipeline metrics
+# Download Prometheus from https://prometheus.io/download/ and run prometheus.exe --config.file=prometheus.yml
+# Then visit http://localhost:9090
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'data_lineage_agent'
+    static_configs:
+      - targets: ['localhost:3000']
+    scrape_interval: 15s

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Lineage Graph</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; display: flex; height: 100vh; overflow: hidden; }
+
+    #sidebar {
+      width: 320px; min-width: 280px; background: #1a1d2e; border-right: 1px solid #2d3748;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    #sidebar h1 { font-size: 15px; padding: 16px; border-bottom: 1px solid #2d3748; color: #90cdf4; letter-spacing: 0.5px; }
+    #filters { padding: 12px 16px; border-bottom: 1px solid #2d3748; }
+    #filters h3 { font-size: 11px; text-transform: uppercase; color: #718096; margin-bottom: 8px; }
+    .filter-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px; cursor: pointer; }
+    .filter-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    #stats { padding: 12px 16px; border-bottom: 1px solid #2d3748; font-size: 12px; color: #a0aec0; }
+    #stats span { display: block; margin-bottom: 4px; }
+    #node-detail { flex: 1; padding: 16px; overflow-y: auto; }
+    #node-detail h3 { font-size: 12px; text-transform: uppercase; color: #718096; margin-bottom: 10px; }
+    #node-detail pre { font-size: 11px; color: #90cdf4; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+    #node-detail .placeholder { color: #4a5568; font-size: 13px; }
+
+    #main { flex: 1; position: relative; overflow: hidden; }
+    #graph-container { width: 100%; height: 100%; }
+    svg { width: 100%; height: 100%; }
+
+    .node circle { stroke-width: 2px; cursor: pointer; transition: r 0.15s; }
+    .node circle:hover { r: 10; }
+    .node.selected circle { stroke: #fff !important; stroke-width: 3px; }
+    .node text { font-size: 10px; fill: #cbd5e0; pointer-events: none; }
+
+    .link { fill: none; stroke-opacity: 0.5; }
+
+    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #718096; font-size: 14px; }
+    #error-msg { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: #742a2a; color: #fed7d7; padding: 10px 20px; border-radius: 6px; font-size: 13px; display: none; }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h1>Data Lineage Graph</h1>
+  <div id="filters">
+    <h3>Filter by Stage</h3>
+    <div id="filter-list"></div>
+  </div>
+  <div id="stats">
+    <span id="stat-nodes">Nodes: —</span>
+    <span id="stat-edges">Edges: —</span>
+    <span id="stat-run">Run: —</span>
+  </div>
+  <div id="node-detail">
+    <h3>Node Detail</h3>
+    <p class="placeholder">Click a node to inspect it.</p>
+  </div>
+</div>
+
+<div id="main">
+  <div id="loading">Loading lineage data...</div>
+  <div id="error-msg"></div>
+  <div id="graph-container"></div>
+</div>
+
+<script>
+const STAGE_COLORS = {
+  PROVIDER: '#718096',
+  BRONZE:   '#4299e1',
+  SILVER:   '#48bb78',
+  GOLD:     '#ed8936',
+};
+const DEFAULT_COLOR = '#9f7aea';
+
+const stageOrder = ['PROVIDER', 'BRONZE', 'SILVER', 'GOLD'];
+let hiddenStages = new Set();
+let allNodes = [], allEdges = [];
+let simulation, svg, linkGroup, nodeGroup, selectedNode = null;
+
+function colorOf(stage) {
+  return STAGE_COLORS[stage] || DEFAULT_COLOR;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function buildFilters() {
+  const list = document.getElementById('filter-list');
+  list.innerHTML = '';
+  stageOrder.forEach(stage => {
+    const item = document.createElement('label');
+    item.className = 'filter-item';
+    item.innerHTML = `
+      <input type="checkbox" checked data-stage="${stage}">
+      <span class="filter-dot" style="background:${colorOf(stage)}"></span>
+      <span>${stage}</span>`;
+    item.querySelector('input').addEventListener('change', e => {
+      if (e.target.checked) hiddenStages.delete(stage);
+      else hiddenStages.add(stage);
+      applyFilter();
+    });
+    list.appendChild(item);
+  });
+}
+
+function applyFilter() {
+  if (!nodeGroup) return;
+  nodeGroup.selectAll('.node')
+    .style('display', d => hiddenStages.has(d.stage) ? 'none' : null);
+  linkGroup.selectAll('.link')
+    .style('display', d => {
+      const srcHidden = hiddenStages.has((allNodes.find(n => n.node_id === d.source.node_id || n.node_id === d.source) || {}).stage);
+      const tgtHidden = hiddenStages.has((allNodes.find(n => n.node_id === d.target.node_id || n.node_id === d.target) || {}).stage);
+      return (srcHidden || tgtHidden) ? 'none' : null;
+    });
+}
+
+function showNodeDetail(node) {
+  const panel = document.getElementById('node-detail');
+  const pretty = JSON.stringify({
+    node_id: node.node_id,
+    stage: node.stage,
+    data_type: node.data_type,
+    label: node.label,
+    record_id: node.record_id,
+    attributes: node.attributes,
+    created_at: node.created_at,
+  }, null, 2);
+  panel.innerHTML = `<h3>Node Detail</h3><pre>${pretty}</pre>`;
+}
+
+function renderGraph(graph) {
+  document.getElementById('loading').style.display = 'none';
+
+  allNodes = graph.nodes || [];
+  allEdges = graph.edges || [];
+
+  document.getElementById('stat-nodes').textContent = `Nodes: ${allNodes.length}`;
+  document.getElementById('stat-edges').textContent = `Edges: ${allEdges.length}`;
+  document.getElementById('stat-run').textContent = `Run: ${(graph.run_id || '').slice(0, 8)}...`;
+
+  buildFilters();
+
+  const container = document.getElementById('graph-container');
+  const W = container.clientWidth, H = container.clientHeight;
+
+  svg = d3.select('#graph-container').append('svg');
+
+  // Arrow marker
+  svg.append('defs').append('marker')
+    .attr('id', 'arrow')
+    .attr('viewBox', '0 -5 10 10')
+    .attr('refX', 20).attr('refY', 0)
+    .attr('markerWidth', 6).attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', '#4a5568');
+
+  const g = svg.append('g');
+
+  // Zoom
+  svg.call(d3.zoom().scaleExtent([0.1, 4]).on('zoom', e => g.attr('transform', e.transform)));
+
+  linkGroup = g.append('g').attr('class', 'links');
+  nodeGroup = g.append('g').attr('class', 'nodes');
+
+  const nodeById = Object.fromEntries(allNodes.map(n => [n.node_id, n]));
+
+  const links = allEdges.map(e => ({
+    ...e,
+    source: e.source_node_id,
+    target: e.target_node_id,
+  }));
+
+  const linkSel = linkGroup.selectAll('.link')
+    .data(links).enter().append('line')
+    .attr('class', 'link')
+    .attr('stroke', '#4a5568')
+    .attr('stroke-width', 1.2)
+    .attr('marker-end', 'url(#arrow)');
+
+  const nodeSel = nodeGroup.selectAll('.node')
+    .data(allNodes).enter().append('g')
+    .attr('class', 'node')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag',  (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end',   (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }))
+    .on('click', (e, d) => {
+      nodeGroup.selectAll('.node').classed('selected', false);
+      d3.select(e.currentTarget).classed('selected', true);
+      selectedNode = d;
+      showNodeDetail(d);
+    });
+
+  nodeSel.append('circle')
+    .attr('r', 7)
+    .attr('fill', d => colorOf(d.stage))
+    .attr('stroke', d => d3.color(colorOf(d.stage)).brighter(1));
+
+  nodeSel.append('text')
+    .attr('x', 10).attr('y', 4)
+    .text(d => d.label.length > 28 ? d.label.slice(0, 28) + '…' : d.label);
+
+  simulation = d3.forceSimulation(allNodes)
+    .force('link', d3.forceLink(links).id(d => d.node_id).distance(80).strength(0.5))
+    .force('charge', d3.forceManyBody().strength(-120))
+    .force('center', d3.forceCenter(W / 2, H / 2))
+    .force('x', d3.forceX().x(d => {
+      const idx = stageOrder.indexOf(d.stage);
+      return (idx < 0 ? 2 : idx) * (W / (stageOrder.length + 1)) + W / (stageOrder.length + 1);
+    }).strength(0.3))
+    .on('tick', () => {
+      linkSel.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+             .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+      nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+}
+
+// Fetch and render
+fetch('/api/lineage')
+  .then(r => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+    return r.json();
+  })
+  .then(renderGraph)
+  .catch(err => {
+    document.getElementById('loading').style.display = 'none';
+    showError(`Failed to load lineage: ${err.message}. Make sure the API server is running and the pipeline has been executed.`);
+  });
+</script>
+</body>
+</html>

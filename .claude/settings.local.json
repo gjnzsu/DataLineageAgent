@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(tsc --version)",
+      "Bash(dir:*)",
+      "Bash(pip --version)",
+      "Bash(pip install:*)",
+      "Bash(python -m pipeline.run_pipeline)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python:*)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/SourceCode/DataLineageAgent/**)",
+      "Bash(done)",
+      "Bash(python3:*)",
+      "Read(//c/Users/gjnzsu/.claude/tasks/dla-docs-team//**)",
+      "Read(//c/Users/gjnzsu/.claude/tasks/dla-docs-team/**)"
+    ]
+  }
+}

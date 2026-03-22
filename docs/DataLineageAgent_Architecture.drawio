@@ -1,0 +1,170 @@
+<mxfile host="app.diagrams.net" version="21.7.6" type="device">
+  <diagram name="DataLineageAgent HLD" id="hld-001">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1"
+                  connect="1" arrows="1" fold="1" page="1" pageScale="1"
+                  pageWidth="1920" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="DataLineageAgent &#8212; High-Level Technical Architecture" style="text;html=1;align=center;fontSize=22;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1"><mxGeometry x="80" y="12" width="1680" height="36" as="geometry" /></mxCell>
+
+        <mxCell id="sub" value="Finance Interest Rate Pipeline &#183; Medallion Architecture (RAW&#8594;BRONZE&#8594;SILVER&#8594;GOLD) &#183; OpenAI gpt-4o Agent &#183; D3.js Viz &#183; Prometheus Observability" style="text;html=1;align=center;fontSize=11;fillColor=none;strokeColor=none;fontColor=#555;" vertex="1" parent="1"><mxGeometry x="80" y="48" width="1680" height="18" as="geometry" /></mxCell>
+
+        <mxCell id="la" value="" style="rounded=0;fillColor=#fff2cc;strokeColor=#d6b656;opacity=30;" vertex="1" parent="1"><mxGeometry x="30" y="75" width="1760" height="88" as="geometry" /></mxCell>
+
+        <mxCell id="la_l" value="A &#183; DATA SOURCE" style="text;html=1;align=left;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#7d6c00;" vertex="1" parent="1"><mxGeometry x="42" y="77" width="400" height="18" as="geometry" /></mxCell>
+
+        <mxCell id="mp" value="&lt;b&gt;MockFedProvider&lt;/b&gt; &#8212; pipeline/stages/mock_provider.py&lt;br/&gt;50 seeded records &#183; Rate Types: SOFR, LIBOR, FED_FUNDS_RATE &#183; Tenors: overnight, 1M, 3M, 6M &#183; Currency: USD &#183; ~10% bad records injected for DQ testing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="1"><mxGeometry x="60" y="92" width="700" height="52" as="geometry" /></mxCell>
+
+        <mxCell id="lb" value="" style="rounded=0;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=30;" vertex="1" parent="1"><mxGeometry x="30" y="173" width="1760" height="46" as="geometry" /></mxCell>
+
+        <mxCell id="lb_l" value="B &#183; PIPELINE ORCHESTRATOR &#8212; pipeline/run_pipeline.py" style="text;html=1;align=left;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#1a3f6f;" vertex="1" parent="1"><mxGeometry x="42" y="175" width="400" height="18" as="geometry" /></mxCell>
+
+        <mxCell id="orch" value="&lt;b&gt;run_pipeline.py&lt;/b&gt; &#183; Initialises LineageTracker &amp; DuckDB &#183; Sequences Stage 0&#8594;4 &#183; Emits Prometheus counters per stage &#183; Writes data/metrics_report.json on completion &#183; Run: python -m pipeline.run_pipeline" style="text;html=1;align=left;fontSize=10;fillColor=none;strokeColor=none;" vertex="1" parent="1"><mxGeometry x="420" y="175" width="1350" height="40" as="geometry" /></mxCell>
+
+        <mxCell id="lc" value="" style="rounded=0;fillColor=#f5f5f5;strokeColor=#999999;opacity=30;" vertex="1" parent="1"><mxGeometry x="30" y="229" width="1760" height="158" as="geometry" /></mxCell>
+
+        <mxCell id="lc_l" value="C &#183; MEDALLION PIPELINE STAGES" style="text;html=1;align=left;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#333;" vertex="1" parent="1"><mxGeometry x="42" y="231" width="400" height="18" as="geometry" /></mxCell>
+
+        <mxCell id="s0" value="&lt;b&gt;Stage 0: Provider&lt;/b&gt;&lt;br/&gt;mock_provider.py&lt;br/&gt;&lt;hr/&gt;Op: PRODUCE&lt;br/&gt;Emits: RAW lineage nodes&lt;br/&gt;Output: interest_rates.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;fontSize=9;" vertex="1" parent="1"><mxGeometry x="55" y="249" width="188" height="130" as="geometry" /></mxCell>
+
+        <mxCell id="s1" value="&lt;b&gt;Stage 1: Ingest&lt;/b&gt;&lt;br/&gt;ingest.py&lt;br/&gt;&lt;hr/&gt;Op: INGEST&lt;br/&gt;Emits: INGESTED nodes&lt;br/&gt;DuckDB: CREATE bronze_rates&lt;br/&gt;INSERT rows from JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce5cd;strokeColor=#c8820a;fontSize=9;" vertex="1" parent="1"><mxGeometry x="278" y="249" width="188" height="130" as="geometry" /></mxCell>
+
+        <mxCell id="s2" value="&lt;b&gt;Stage 2: Validate&lt;/b&gt;&lt;br/&gt;validate.py&lt;br/&gt;&lt;hr/&gt;Op: VALIDATE&lt;br/&gt;Rules: rate_type&#183;tenor&#183;value (0-0.30)&#183;date&lt;br/&gt;Emits: VALIDATED nodes&lt;br/&gt;DuckDB: silver_rates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8e8e8;strokeColor=#888;fontSize=9;" vertex="1" parent="1"><mxGeometry x="501" y="249" width="188" height="130" as="geometry" /></mxCell>
+
+        <mxCell id="s3" value="&lt;b&gt;Stage 3: Transform&lt;/b&gt;&lt;br/&gt;transform.py&lt;br/&gt;&lt;hr/&gt;Ops: TRANSFORM x4 per record&lt;br/&gt;1. BPS Conversion&lt;br/&gt;2. PCT Conversion&lt;br/&gt;3. Rate Classification (LOW/MED/HIGH)&lt;br/&gt;4. Tenor Normalisation&lt;br/&gt;DuckDB: UPDATE silver_rates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8e8e8;strokeColor=#888;fontSize=9;" vertex="1" parent="1"><mxGeometry x="724" y="249" width="188" height="130" as="geometry" /></mxCell>
+
+        <mxCell id="s4" value="&lt;b&gt;Stage 4: Aggregate&lt;/b&gt;&lt;br/&gt;aggregate.py&lt;br/&gt;&lt;hr/&gt;Op: AGGREGATE&lt;br/&gt;Groups: rate_type+tenor+date&lt;br/&gt;Computes: avg, min, max&lt;br/&gt;Emits: AGGREGATED nodes&lt;br/&gt;DuckDB: gold_rates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1"><mxGeometry x="947" y="249" width="188" height="130" as="geometry" /></mxCell>
+
+        <mxCell id="emit" value="&lt;b&gt;LineageEmitter&lt;/b&gt;&lt;br/&gt;pipeline/lineage_emitter.py&lt;br/&gt;&lt;hr/&gt;Thin wrapper used by ALL stages&lt;br/&gt;emit(op, data_type, label, record_id, attrs)&lt;br/&gt;Delegates to LineageTracker.record_event()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="1180" y="249" width="210" height="130" as="geometry" /></mxCell>
+
+        <mxCell id="a_mp_s0" value="50 records" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="mp" target="s0" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_s0_s1" value="RAW JSON" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="s0" target="s1" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_s1_s2" value="bronze" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="s1" target="s2" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_s2_s3" value="valid" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="s2" target="s3" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_s3_s4" value="silver" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="s3" target="s4" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_s4_em" value="emit()" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;dashed=1;strokeColor=#9673a6;" edge="1" source="s4" target="emit" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="ld" value="" style="rounded=0;fillColor=#f8cecc;strokeColor=#b85450;opacity=30;" vertex="1" parent="1"><mxGeometry x="30" y="399" width="1760" height="108" as="geometry" /></mxCell>
+
+        <mxCell id="ld_l" value="D &#183; STORAGE LAYER" style="text;html=1;align=left;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#6d0000;" vertex="1" parent="1"><mxGeometry x="42" y="401" width="400" height="18" as="geometry" /></mxCell>
+
+        <mxCell id="raw_f" value="&lt;b&gt;Raw JSON&lt;/b&gt;&lt;br/&gt;data/raw/interest_rates.json&lt;br/&gt;50 records&#183;written by Stage 0" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1"><mxGeometry x="55" y="414" width="188" height="78" as="geometry" /></mxCell>
+
+        <mxCell id="duck_f" value="&lt;b&gt;DuckDB&lt;/b&gt;&lt;br/&gt;data/pipeline.duckdb&lt;br/&gt;bronze&#183;silver&#183;gold tables" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#fce5cd;strokeColor=#d79b00;fontSize=9;" vertex="1" parent="1"><mxGeometry x="278" y="414" width="188" height="78" as="geometry" /></mxCell>
+
+        <mxCell id="lin_f" value="&lt;b&gt;Lineage Store&lt;/b&gt;&lt;br/&gt;data/lineage_store.json&lt;br/&gt;~361 nodes &#183; ~272 edges" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="501" y="414" width="188" height="78" as="geometry" /></mxCell>
+
+        <mxCell id="met_f" value="&lt;b&gt;Metrics Report&lt;/b&gt;&lt;br/&gt;data/metrics_report.json&lt;br/&gt;stage durations&#183;counts" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" vertex="1" parent="1"><mxGeometry x="724" y="414" width="188" height="78" as="geometry" /></mxCell>
+
+        <mxCell id="log_f" value="&lt;b&gt;Agent Session Log&lt;/b&gt;&lt;br/&gt;data/agent_session_log.json&lt;br/&gt;tool calls&#183;latency&#183;turns" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1"><mxGeometry x="947" y="414" width="188" height="78" as="geometry" /></mxCell>
+
+        <mxCell id="a_s0_raw" value="write" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="s0" target="raw_f" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_s1_ddb" value="write" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="s1" target="duck_f" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="le" value="" style="rounded=0;fillColor=#e1d5e7;strokeColor=#9673a6;opacity=30;" vertex="1" parent="1"><mxGeometry x="30" y="519" width="1760" height="138" as="geometry" /></mxCell>
+
+        <mxCell id="le_l" value="E &#183; LINEAGE ENGINE" style="text;html=1;align=left;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#4d004d;" vertex="1" parent="1"><mxGeometry x="42" y="521" width="400" height="18" as="geometry" /></mxCell>
+
+        <mxCell id="tracker" value="&lt;b&gt;LineageTracker&lt;/b&gt; &#8212; lineage/tracker.py&lt;br/&gt;record_event(stage, op, data_type, label, record_id, attrs)&lt;br/&gt;Auto-chains edges via _record_latest_node dict&lt;br/&gt;complete() &#8594; serialise LineageGraph &#8594; write_lineage_store()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="55" y="537" width="430" height="105" as="geometry" /></mxCell>
+
+        <mxCell id="lnode" value="&lt;b&gt;LineageNode&lt;/b&gt;&lt;br/&gt;node_id &#183; stage &#183; data_type &#183; label &#183; record_id &#183; attributes &#183; created_at" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8ff;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="510" y="537" width="280" height="45" as="geometry" /></mxCell>
+
+        <mxCell id="ledge" value="&lt;b&gt;LineageEdge&lt;/b&gt;&lt;br/&gt;edge_id &#183; source_node_id &#183; target_node_id &#183; operation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8ff;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="510" y="592" width="280" height="40" as="geometry" /></mxCell>
+
+        <mxCell id="store_mod" value="&lt;b&gt;lineage/store.py&lt;/b&gt;&lt;br/&gt;read_lineage_store() / write_lineage_store()&lt;br/&gt;I/O for data/lineage_store.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1"><mxGeometry x="820" y="537" width="280" height="65" as="geometry" /></mxCell>
+
+        <mxCell id="a_emit_trk" value="record_event()" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;dashed=1;strokeColor=#9673a6;" edge="1" source="emit" target="tracker" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_trk_smod" value="complete()" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="tracker" target="store_mod" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_smod_linf" value="write JSON" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="store_mod" target="lin_f" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="lf" value="" style="rounded=0;fillColor=#d5e8d4;strokeColor=#82b366;opacity=30;" vertex="1" parent="1"><mxGeometry x="30" y="669" width="1760" height="158" as="geometry" /></mxCell>
+
+        <mxCell id="lf_l" value="F &#183; AI AGENT (OpenAI gpt-4o)" style="text;html=1;align=left;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#1a4d1a;" vertex="1" parent="1"><mxGeometry x="42" y="671" width="400" height="18" as="geometry" /></mxCell>
+
+        <mxCell id="agent" value="&lt;b&gt;agent/agent.py&lt;/b&gt; &#8212; OpenAI gpt-4o REPL&lt;br/&gt;SYSTEM PROMPT: knows pipeline stages, rate types, lineage schema&lt;br/&gt;Loop: user question &#8594; gpt-4o &#8594; tool_calls &#8594; dispatch() &#8594; result &#8594; gpt-4o &#8594; answer&lt;br/&gt;Tracks: agent_tool_calls_total, agent_response_latency_seconds, agent_questions_total&lt;br/&gt;Writes session to data/agent_session_log.json &#183; Run: python -m agent.agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1"><mxGeometry x="55" y="689" width="500" height="128" as="geometry" /></mxCell>
+
+        <mxCell id="tool_reg" value="&lt;b&gt;agent/tool_registry.py&lt;/b&gt;&lt;br/&gt;TOOLS list (OpenAI function schemas)&lt;br/&gt;dispatch(tool_name, args, graph, metrics)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1"><mxGeometry x="590" y="689" width="240" height="75" as="geometry" /></mxCell>
+
+        <mxCell id="t1" value="&lt;b&gt;get_pipeline_summary&lt;/b&gt;&lt;br/&gt;Overall pipeline stats" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1"><mxGeometry x="870" y="689" width="170" height="75" as="geometry" /></mxCell>
+
+        <mxCell id="t2" value="&lt;b&gt;get_record_lineage&lt;/b&gt;&lt;br/&gt;Full upstream chain for a record_id" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1"><mxGeometry x="1070" y="689" width="170" height="75" as="geometry" /></mxCell>
+
+        <mxCell id="t3" value="&lt;b&gt;get_downstream&lt;/b&gt;&lt;br/&gt;Downstream nodes from a node_id" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1"><mxGeometry x="1270" y="689" width="170" height="75" as="geometry" /></mxCell>
+
+        <mxCell id="t4" value="&lt;b&gt;list_transformations&lt;/b&gt;&lt;br/&gt;All TRANSFORM operations" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1"><mxGeometry x="1470" y="689" width="170" height="75" as="geometry" /></mxCell>
+
+        <mxCell id="t5" value="&lt;b&gt;get_node_details&lt;/b&gt;&lt;br/&gt;Full details for a node_id" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1"><mxGeometry x="1650" y="689" width="170" height="75" as="geometry" /></mxCell>
+
+        <mxCell id="a_agent_reg" value="dispatch()" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="agent" target="tool_reg" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_reg_t1" value="" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#82b366;" edge="1" source="tool_reg" target="t1" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_reg_t2" value="" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#82b366;" edge="1" source="tool_reg" target="t2" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_reg_t3" value="" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#82b366;" edge="1" source="tool_reg" target="t3" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_reg_t4" value="" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#82b366;" edge="1" source="tool_reg" target="t4" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_reg_t5" value="" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#82b366;" edge="1" source="tool_reg" target="t5" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_agent_linf" value="read" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;dashed=1;strokeColor=#555555;" edge="1" source="agent" target="lin_f" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_agent_log" value="write session" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="agent" target="log_f" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="lg" value="" style="rounded=0;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=30;" vertex="1" parent="1"><mxGeometry x="30" y="840" width="1760" height="158" as="geometry" /></mxCell>
+
+        <mxCell id="lg_l" value="G &#183; API + UI LAYER" style="text;html=1;align=left;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#1a3f6f;" vertex="1" parent="1"><mxGeometry x="42" y="842" width="400" height="18" as="geometry" /></mxCell>
+
+        <mxCell id="api" value="&lt;b&gt;FastAPI&lt;/b&gt; &#8212; api/main.py &#183; Port 3000&lt;br/&gt;GET  /                  &#8594; serve D3.js UI (ui/index.html)&lt;br/&gt;GET  /api/lineage        &#8594; full lineage graph JSON&lt;br/&gt;GET  /api/lineage/node/{id} &#8594; single node&lt;br/&gt;POST /api/run-pipeline   &#8594; trigger pipeline programmatically&lt;br/&gt;GET  /api/metrics-report &#8594; last metrics_report.json&lt;br/&gt;GET  /metrics            &#8594; Prometheus scrape endpoint&lt;br/&gt;Run: uvicorn api.main:app --port 3000" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" vertex="1" parent="1"><mxGeometry x="55" y="858" width="460" height="128" as="geometry" /></mxCell>
+
+        <mxCell id="ui" value="&lt;b&gt;D3.js v7 DAG Visualization&lt;/b&gt; &#8212; ui/index.html&lt;br/&gt;http://localhost:3000&lt;br/&gt;Fetches /api/lineage &#8594; renders interactive DAG&lt;br/&gt;Nodes coloured by stage (RAW/BRONZE/SILVER/GOLD)&lt;br/&gt;Click node to inspect lineage path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" vertex="1" parent="1"><mxGeometry x="550" y="858" width="380" height="128" as="geometry" /></mxCell>
+
+        <mxCell id="a_api_linf" value="read lineage" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="api" target="lin_f" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_api_metf" value="read metrics" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="api" target="met_f" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_ui_api" value="GET /api/lineage" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="ui" target="api" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="lh" value="" style="rounded=0;fillColor=#ffe6cc;strokeColor=#d79b00;opacity=30;" vertex="1" parent="1"><mxGeometry x="30" y="1011" width="1760" height="130" as="geometry" /></mxCell>
+
+        <mxCell id="lh_l" value="H &#183; OBSERVABILITY (Prometheus)" style="text;html=1;align=left;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#7d4e00;" vertex="1" parent="1"><mxGeometry x="42" y="1013" width="400" height="18" as="geometry" /></mxCell>
+
+        <mxCell id="metrics_py" value="&lt;b&gt;observability/metrics.py&lt;/b&gt; &#8212; shared REGISTRY&lt;br/&gt;pipeline_records_total (Counter) &#183; pipeline_stage_duration_seconds (Histogram)&lt;br/&gt;data_quality_valid_records (Gauge) &#183; data_quality_invalid_records (Gauge)&lt;br/&gt;data_quality_validation_errors_total (Counter)&lt;br/&gt;lineage_nodes_total &#183; lineage_edges_total &#183; lineage_orphan_nodes&lt;br/&gt;agent_tool_calls_total &#183; agent_response_latency_seconds &#183; agent_questions_total" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=9;" vertex="1" parent="1"><mxGeometry x="55" y="1029" width="560" height="100" as="geometry" /></mxCell>
+
+        <mxCell id="prometheus" value="&lt;b&gt;Prometheus Server&lt;/b&gt;&lt;br/&gt;Scrapes GET /metrics every 15s&lt;br/&gt;prometheus.yml provided in repo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=9;" vertex="1" parent="1"><mxGeometry x="660" y="1029" width="220" height="65" as="geometry" /></mxCell>
+
+        <mxCell id="a_api_prom" value="exposes /metrics" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#555555;" edge="1" source="api" target="metrics_py" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="a_prom_scrape" value="scrape /metrics" style="edgeStyle=orthogonalEdgeStyle;fontSize=9;strokeColor=#d79b00;" edge="1" source="prometheus" target="api" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="leg_bg" value="" style="rounded=1;fillColor=#ffffff;strokeColor=#cccccc;" vertex="1" parent="1"><mxGeometry x="1440" y="858" width="320" height="270" as="geometry" /></mxCell>
+
+        <mxCell id="leg_t" value="LEGEND" style="text;html=1;align=center;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1"><mxGeometry x="1450" y="864" width="300" height="18" as="geometry" /></mxCell>
+
+        <mxCell id="leg_0" value="Data Source (MockFedProvider)" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=9;align=left;spacingLeft=4;" vertex="1" parent="1"><mxGeometry x="1450" y="888" width="300" height="24" as="geometry" /></mxCell>
+
+        <mxCell id="leg_1" value="Bronze Layer (Ingest)" style="rounded=1;fillColor=#fce5cd;strokeColor=#c8820a;fontSize=9;align=left;spacingLeft=4;" vertex="1" parent="1"><mxGeometry x="1450" y="920" width="300" height="24" as="geometry" /></mxCell>
+
+        <mxCell id="leg_2" value="Silver Layer (Validate+Transform)" style="rounded=1;fillColor=#e8e8e8;strokeColor=#888888;fontSize=9;align=left;spacingLeft=4;" vertex="1" parent="1"><mxGeometry x="1450" y="952" width="300" height="24" as="geometry" /></mxCell>
+
+        <mxCell id="leg_3" value="Gold Layer / AI Agent" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;align=left;spacingLeft=4;" vertex="1" parent="1"><mxGeometry x="1450" y="984" width="300" height="24" as="geometry" /></mxCell>
+
+        <mxCell id="leg_4" value="Lineage Engine" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;align=left;spacingLeft=4;" vertex="1" parent="1"><mxGeometry x="1450" y="1016" width="300" height="24" as="geometry" /></mxCell>
+
+        <mxCell id="leg_5" value="API / Storage" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;align=left;spacingLeft=4;" vertex="1" parent="1"><mxGeometry x="1450" y="1048" width="300" height="24" as="geometry" /></mxCell>
+
+        <mxCell id="leg_6" value="Observability" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=9;align=left;spacingLeft=4;" vertex="1" parent="1"><mxGeometry x="1450" y="1080" width="300" height="24" as="geometry" /></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
