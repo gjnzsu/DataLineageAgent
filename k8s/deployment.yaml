@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-lineage-agent
+  namespace: data-lineage
+  labels:
+    app: data-lineage-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-lineage-agent
+  strategy:
+    type: Recreate          # Required: PVC is ReadWriteOnce
+  template:
+    metadata:
+      labels:
+        app: data-lineage-agent
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: data-lineage-agent
+          image: gcr.io/gen-lang-client-0896070179/data-lineage-agent:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: data-lineage-secrets
+                  key: OPENAI_API_KEY
+          volumeMounts:
+            - name: data-volume
+              mountPath: /app/data
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/lineage
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/lineage
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-lineage-pvc

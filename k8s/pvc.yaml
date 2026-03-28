@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-lineage-pvc
+  namespace: data-lineage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  # Uses the default GKE storage class (standard-rwo / pd-balanced)
+  storageClassName: standard-rwo

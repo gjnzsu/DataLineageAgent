@@ -1,0 +1,35 @@
+# Version control
+.git/
+.gitignore
+
+# Environment files — secrets must never land in the image
+.env
+.env.*
+
+# Runtime-generated data (mounted as PVC in GKE)
+data/
+
+# Tests and dev tooling
+tests/
+pytest.ini
+setup.cfg
+
+# Docs
+docs/
+README.md
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Kubernetes manifests (not needed in image)
+k8s/
+cloudbuild.yaml
+prometheus.yml
