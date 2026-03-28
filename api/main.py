@@ -25,6 +25,12 @@ def serve_ui():
     return UI_PATH.read_text(encoding="utf-8")
 
 
+@app.get("/health")
+def health():
+    """Liveness/readiness probe endpoint."""
+    return {"status": "ok"}
+
+
 @app.get("/api/lineage")
 def get_lineage():
     """Return the full lineage graph as JSON."""
