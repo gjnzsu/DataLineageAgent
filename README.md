@@ -1,16 +1,16 @@
 # DataLineageAgent
 
-> End-to-end data lineage tracking and AI-powered provenance querying for a finance interest rate pipeline.
+> AI-native data intelligence system enabling end-to-end lineage tracking and natural language–driven provenance querying to accelerate root cause analysis, enhance data transparency, and strengthen governance across multi-layer financial data pipelines.
 
 ---
 
 ## Overview
 
-DataLineageAgent is a local proof-of-concept that demonstrates automatic runtime lineage capture for a finance interest rate data pipeline. It processes mock interest rate records (SOFR, LIBOR, FED_FUNDS_RATE) through a four-tier medallion architecture — raw ingestion through bronze, silver, and gold analytical layers — while capturing every transformation event as a structured lineage graph in real time.
+DataLineageAgent is an AI-native data intelligence system that delivers end-to-end lineage tracking and natural language–driven provenance querying across multi-layer financial data pipelines. It processes mock interest rate records (SOFR, LIBOR, FED_FUNDS_RATE) through a four-tier medallion architecture — raw ingestion through bronze, silver, and gold analytical layers — while capturing every transformation event as a structured lineage graph in real time.
 
-The system exposes a GPT-4o powered conversational REPL agent that answers natural-language questions about data provenance: where a record originated, what transformations it underwent, which downstream aggregations it contributed to. Lineage data is persisted as a JSON graph and visualised as an interactive force-directed DAG in the browser via D3.js.
+The system exposes a GPT-4o powered conversational agent that answers natural-language questions about data provenance: where a record originated, what transformations it underwent, and which downstream aggregations it contributed to. This accelerates root cause analysis, enhances data transparency, and strengthens governance across the pipeline.
 
-DataLineageAgent is self-contained — no external infrastructure required beyond an OpenAI API key. Its primary goal is to validate the architectural pattern (dynamic runtime lineage capture + AI-powered querying) before investing in a production-grade implementation.
+Lineage data is persisted as a JSON graph and visualised as an interactive force-directed DAG in the browser via D3.js. The service is deployed on Google Kubernetes Engine (GKE) with Prometheus metrics scraping and a Grafana observability dashboard.
 
 ---
 
@@ -437,6 +437,73 @@ python -m pytest tests/ -v
 | LineageTracker | ~6 | node creation, edge auto-chaining, complete() |
 | LineageStore | ~4 | read/write round-trip, missing file handling |
 | API endpoints | ~7 | all 6 routes, 404 handling, pipeline trigger |
+
+---
+
+## GKE Deployment
+
+The service is deployed on Google Kubernetes Engine. All deployment artifacts are in the `k8s/` directory.
+
+### Live Endpoints
+
+| Service | URL |
+|---|---|
+| Data Lineage UI | http://34.31.145.177 |
+| REST API + Swagger | http://34.31.145.177/docs |
+| Prometheus | http://136.113.33.154:9090 |
+| Grafana Dashboard | http://136.114.77.0/d/cfhdfa6i2p534e/data-lineage-agent |
+
+### Infrastructure
+
+| Component | Detail |
+|---|---|
+| GCP Project | `gen-lang-client-0896070179` |
+| Cluster | `helloworld-cluster` (us-central1) |
+| Namespace | `data-lineage` |
+| Image | `gcr.io/gen-lang-client-0896070179/data-lineage-agent:latest` |
+| Persistent storage | 2Gi PVC (`standard-rwo`) mounted at `/app/data` |
+| Secret | `data-lineage-secrets` — `OPENAI_API_KEY` injected via K8s Secret |
+
+### Deploy from Scratch
+
+```bash
+# 1. Authenticate and set project
+gcloud auth login
+gcloud config set project gen-lang-client-0896070179
+
+# 2. Get cluster credentials
+gcloud container clusters get-credentials helloworld-cluster --region us-central1
+
+# 3. Apply namespace, PVC, and secret
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/pvc.yaml
+kubectl create secret generic data-lineage-secrets \
+  --namespace=data-lineage \
+  --from-literal=OPENAI_API_KEY='sk-...'
+
+# 4. Build and push image
+docker build -t gcr.io/gen-lang-client-0896070179/data-lineage-agent:latest .
+docker push gcr.io/gen-lang-client-0896070179/data-lineage-agent:latest
+
+# 5. Deploy
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+
+# 6. Seed data
+curl -X POST http://<EXTERNAL_IP>/api/run-pipeline
+```
+
+### Observability
+
+```bash
+# Apply Prometheus scrape config
+kubectl apply -f k8s/prometheus-configmap.yaml
+
+# Import Grafana dashboard
+curl -u admin:<password> -X POST http://<GRAFANA_IP>/api/dashboards/db \
+  -H 'Content-Type: application/json' \
+  -d @k8s/grafana-dashboard-data-lineage.json
+```
 
 ---
 
