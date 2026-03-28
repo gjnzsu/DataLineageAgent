@@ -1,0 +1,70 @@
+{
+  "dashboard": {
+    "title": "Data Lineage Agent",
+    "tags": ["data-lineage"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Records Processed by Stage",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 4},
+        "targets": [{"expr": "pipeline_records_total", "legendFormat": "{{stage}} / {{status}}", "datasource": {"type": "prometheus", "uid": "prometheus"}}],
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      },
+      {
+        "id": 2,
+        "title": "Stage Duration (seconds)",
+        "type": "bargauge",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 4},
+        "targets": [{"expr": "pipeline_stage_duration_seconds_sum", "legendFormat": "{{stage}}", "datasource": {"type": "prometheus", "uid": "prometheus"}}],
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      },
+      {
+        "id": 3,
+        "title": "Records Processed Over Time",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 4, "w": 24, "h": 8},
+        "targets": [{"expr": "pipeline_records_total", "legendFormat": "{{stage}} / {{status}}", "datasource": {"type": "prometheus", "uid": "prometheus"}}],
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      },
+      {
+        "id": 4,
+        "title": "Lineage Nodes Total",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 12, "w": 8, "h": 4},
+        "targets": [{"expr": "lineage_nodes_total", "legendFormat": "Nodes", "datasource": {"type": "prometheus", "uid": "prometheus"}}],
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      },
+      {
+        "id": 5,
+        "title": "Lineage Edges Total",
+        "type": "stat",
+        "gridPos": {"x": 8, "y": 12, "w": 8, "h": 4},
+        "targets": [{"expr": "lineage_edges_total", "legendFormat": "Edges", "datasource": {"type": "prometheus", "uid": "prometheus"}}],
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      },
+      {
+        "id": 6,
+        "title": "Data Quality: Invalid Records",
+        "type": "stat",
+        "gridPos": {"x": 16, "y": 12, "w": 8, "h": 4},
+        "targets": [{"expr": "pipeline_records_total{status=\"invalid\"}", "legendFormat": "Invalid", "datasource": {"type": "prometheus", "uid": "prometheus"}}],
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      },
+      {
+        "id": 7,
+        "title": "Pipeline Stage Duration Heatmap",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 16, "w": 24, "h": 8},
+        "targets": [
+          {"expr": "pipeline_stage_duration_seconds_sum / pipeline_stage_duration_seconds_count", "legendFormat": "avg duration - {{stage}}", "datasource": {"type": "prometheus", "uid": "prometheus"}}
+        ],
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      }
+    ]
+  },
+  "overwrite": true,
+  "folderId": 0
+}
