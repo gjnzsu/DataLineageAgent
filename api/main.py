@@ -6,9 +6,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from pydantic import BaseModel, field_validator
 
 from lineage.store import read_lineage_store
 from observability.metrics import REGISTRY
+from agent.chat import chat_turn
 
 app = FastAPI(title="Data Lineage Agent API", version="1.0.0")
 
@@ -72,6 +74,42 @@ def get_metrics_report():
         raise HTTPException(status_code=404, detail="No metrics report found. Run the pipeline first.")
     with open(METRICS_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+class ChatRequest(BaseModel):
+    messages: list[dict]
+    question: str
+
+    @field_validator("question")
+    @classmethod
+    def question_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("question must not be empty")
+        return v
+
+
+@app.post("/api/chat")
+def chat(req: ChatRequest):
+    """Run one conversation turn with the gpt-4o lineage agent."""
+    try:
+        graph = read_lineage_store()
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail="Pipeline data not available. Run the pipeline first via POST /api/run-pipeline.",
+        )
+
+    metrics: dict | None = None
+    if METRICS_PATH.exists():
+        with open(METRICS_PATH, "r", encoding="utf-8") as f:
+            metrics = json.load(f)
+
+    try:
+        answer, updated_messages = chat_turn(req.messages, req.question, graph, metrics)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"answer": answer, "messages": updated_messages}
 
 
 @app.get("/metrics")
