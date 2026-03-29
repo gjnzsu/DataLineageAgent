@@ -67,6 +67,15 @@ def chat_turn(
 
         # Process tool calls
         full_messages.append(msg)
+        # Also track in messages for multi-turn history
+        messages.append({
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in msg.tool_calls
+            ]
+        })
         for tc in msg.tool_calls:
             tool_name = tc.function.name
             try:
@@ -74,10 +83,12 @@ def chat_turn(
                 result = dispatch(tool_name, args, graph, metrics)
             except Exception as e:
                 result = {"error": str(e)}
-            full_messages.append({
+            tool_result = {
                 "role": "tool",
                 "tool_call_id": tc.id,
                 "content": json.dumps(result),
-            })
+            }
+            full_messages.append(tool_result)
+            messages.append(tool_result)
 
     return answer, messages

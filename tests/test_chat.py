@@ -87,6 +87,11 @@ def test_chat_turn_executes_tool_call(graph, metrics):
     with patch("agent.chat.OpenAI") as MockOpenAI:
         instance = MockOpenAI.return_value
         instance.chat.completions.create.side_effect = [resp1, resp2]
-        answer, _ = chat_turn([], "Summarize the pipeline.", graph, metrics)
+        answer, updated = chat_turn([], "Summarize the pipeline.", graph, metrics)
 
     assert "8 nodes" in answer or answer == "Summary: 8 nodes, 7 edges."
+    # messages must include: user, assistant tool-call, tool result, final assistant
+    assert len(updated) > 2
+    roles = [m["role"] for m in updated]
+    assert roles.count("tool") >= 1
+    assert any(m["role"] == "assistant" and m.get("tool_calls") for m in updated)
