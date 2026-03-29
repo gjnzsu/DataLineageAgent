@@ -69,12 +69,19 @@ def test_chat_returns_answer(client, monkeypatch):
     data = response.json()
     assert "answer" in data
     assert "messages" in data
+    assert len(data["messages"]) >= 2  # at least user + assistant turn
     assert data["answer"] == "The pipeline has 8 nodes."
 
 
 def test_chat_empty_question_rejected(client):
     """POST /api/chat with empty question returns 422."""
     response = client.post("/api/chat", json={"messages": [], "question": ""})
+    assert response.status_code == 422
+
+
+def test_chat_whitespace_question_rejected(client):
+    """POST /api/chat with whitespace-only question returns 422."""
+    response = client.post("/api/chat", json={"messages": [], "question": "   "})
     assert response.status_code == 422
 
 
