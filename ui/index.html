@@ -317,6 +317,7 @@ async function sendMessage() {
   chatInput.disabled = true;
   chatSendBtn.disabled = true;
   appendMessage('user', question);
+  chatHistory.push({ role: 'user', content: question });
   const thinking = document.createElement('div');
   thinking.className = 'chat-msg agent';
   thinking.textContent = '...';
