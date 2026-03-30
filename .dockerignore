@@ -9,8 +9,7 @@
 # Runtime-generated data (mounted as PVC in GKE)
 data/
 
-# Tests and dev tooling
-tests/
+# Tests and dev tooling (tests/ kept for builder stage; excluded from runtime via explicit COPY)
 pytest.ini
 setup.cfg
 

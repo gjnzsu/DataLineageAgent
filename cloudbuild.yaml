@@ -61,12 +61,20 @@ steps:
   - name: gcr.io/cloud-builders/kubectl
     id: apply-infra
     waitFor: [get-credentials]
+    env:
+      - CLOUDSDK_CONTAINER_CLUSTER=$_CLUSTER_NAME
+      - CLOUDSDK_COMPUTE_ZONE=$_CLUSTER_ZONE
+      - CLOUDSDK_CORE_PROJECT=$PROJECT_ID
     args: [apply, -f, k8s/namespace.yaml, -f, k8s/pvc.yaml]
 
   # 5. Update deployment image to the new SHA tag
   - name: gcr.io/cloud-builders/kubectl
     id: deploy
     waitFor: [apply-infra]
+    env:
+      - CLOUDSDK_CONTAINER_CLUSTER=$_CLUSTER_NAME
+      - CLOUDSDK_COMPUTE_ZONE=$_CLUSTER_ZONE
+      - CLOUDSDK_CORE_PROJECT=$PROJECT_ID
     args:
       - set
       - image
@@ -78,6 +86,10 @@ steps:
   - name: gcr.io/cloud-builders/kubectl
     id: apply-service
     waitFor: [deploy]
+    env:
+      - CLOUDSDK_CONTAINER_CLUSTER=$_CLUSTER_NAME
+      - CLOUDSDK_COMPUTE_ZONE=$_CLUSTER_ZONE
+      - CLOUDSDK_CORE_PROJECT=$PROJECT_ID
     args: [apply, -f, k8s/service.yaml]
 
 images:
