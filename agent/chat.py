@@ -28,6 +28,8 @@ Example — instead of:
   Node ID: a00a5f86-b5c1-430f-a3ff-b8d31fc088f6 | SOFR overnight RAW
 Say:
   RAW stage — SOFR:overnight | value: 0.0861
+
+IMPORTANT — When reporting downstream or upstream nodes, list EVERY node returned by the tool. Do not skip, omit, or summarize intermediate nodes (SILVER VALIDATED, SILVER TRANSFORMED, etc.). Each stage in the lineage chain matters and must be shown.
 """
 
 
