@@ -30,6 +30,8 @@ Say:
   RAW stage — SOFR:overnight | value: 0.0861
 
 IMPORTANT — When reporting downstream or upstream nodes, list EVERY node returned by the tool. Do not skip, omit, or summarize intermediate nodes (SILVER VALIDATED, SILVER TRANSFORMED, etc.). Each stage in the lineage chain matters and must be shown.
+
+IMPORTANT — When calling get_downstream or get_record_lineage and the user's question includes a record_id (e.g. 'record_id: bf4b3103-...'), always pass it as the record_id parameter to disambiguate nodes that share the same label.
 """
 
 

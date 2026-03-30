@@ -3,13 +3,17 @@ from collections import deque
 
 SCHEMA = {
     "name": "get_downstream",
-    "description": "Finds all lineage nodes that are downstream (dependent on) a given node_id. Useful for impact analysis — e.g., what would be affected if this node changed.",
+    "description": "Finds all lineage nodes that are downstream (dependent on) a given node. Useful for impact analysis — e.g., what would be affected if this node changed.",
     "parameters": {
         "type": "object",
         "properties": {
             "node_id": {
                 "type": "string",
                 "description": "The node_id (UUID) or a partial label string such as a rate type, tenor, or stage prefix (e.g. 'FED_FUNDS_RATE/6M', 'SILVER:SOFR'). Label search is used if no exact UUID match is found.",
+            },
+            "record_id": {
+                "type": "string",
+                "description": "Optional record_id UUID to disambiguate when multiple nodes share the same label. If provided, only nodes matching this record_id are considered.",
             }
         },
         "required": ["node_id"],
@@ -17,7 +21,7 @@ SCHEMA = {
 }
 
 
-def execute(graph: dict, node_id: str) -> dict:
+def execute(graph: dict, node_id: str, record_id: str = None) -> dict:
     nodes = graph.get("nodes", [])
     nodes_by_id = {n["node_id"]: n for n in nodes}
 
@@ -30,6 +34,11 @@ def execute(graph: dict, node_id: str) -> dict:
             or query in n.get("data_type", "").lower()
             or query in str(n.get("attributes", {})).lower()
         ]
+        # Narrow by record_id if provided
+        if record_id and matches:
+            narrowed = [m for m in matches if m.get("record_id") == record_id]
+            if narrowed:
+                matches = narrowed
         if not matches:
             return {"error": f"Node '{node_id}' not found. No label or attribute match either."}
         if len(matches) > 5:
@@ -39,8 +48,8 @@ def execute(graph: dict, node_id: str) -> dict:
             }
         if len(matches) > 1:
             return {
-                "matches": [{"node_id": m["node_id"], "label": m["label"], "stage": m["stage"]} for m in matches],
-                "hint": "Multiple nodes matched. Use the exact node_id UUID from this list.",
+                "matches": [{"node_id": m["node_id"], "label": m["label"], "stage": m["stage"], "record_id": m.get("record_id")} for m in matches],
+                "hint": "Multiple nodes matched. Provide record_id to disambiguate, or use the exact node_id UUID from this list.",
             }
         node_id = matches[0]["node_id"]
 
