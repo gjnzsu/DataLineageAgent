@@ -249,11 +249,11 @@ classDiagram
         +str run_id
         +datetime started_at
         +LineageGraph graph
-        +emit(stage, node_type, metadata) void
-        +add_node(node LineageNode) void
-        +add_edge(edge LineageEdge) void
-        +complete() void
-        +get_graph() LineageGraph
+        +dict _record_latest_node
+        +record_event(stage, operation, data_type, label, record_id, parent_node_id, parent_node_ids) str
+        +get_latest_node_id(record_id) str
+        +complete() dict
+        +get_graph() dict
     }
 
     class LineageGraph {
@@ -268,21 +268,19 @@ classDiagram
 
     class LineageNode {
         +str node_id
-        +str label
-        +str layer
         +str stage
-        +str node_type
-        +dict metadata
-        +datetime created_at
+        +str data_type
+        +str label
+        +str record_id
+        +dict attributes
+        +str created_at
     }
 
     class LineageEdge {
         +str edge_id
-        +str source_id
-        +str target_id
-        +str relationship
-        +dict metadata
-        +datetime created_at
+        +str source_node_id
+        +str target_node_id
+        +str operation
     }
 
     class LineageStore {
@@ -314,12 +312,14 @@ graph LR
     end
 
     subgraph FastAPI["FastAPI — port 3000"]
-        EP1["GET /lineage\nReturns full DAG\n(nodes + edges)"]
-        EP2["GET /lineage/{node_id}\nReturns single node\n+ neighbors"]
-        EP3["GET /summary\nReturns pipeline run\nsummary stats"]
+        EP1["GET /api/lineage\nReturns full DAG\n(nodes + edges)"]
+        EP2["GET /api/lineage/node/{node_id}\nReturns single node\n+ neighbors"]
+        EP3["GET /api/metrics-report\nReturns pipeline run\nsummary stats"]
         EP4["GET /health\nReturns service\nliveness status"]
         EP5["GET /metrics\nReturns Prometheus\ntext exposition"]
         EP6["GET /\nServes ui/index.html\n(D3.js DAG viz)"]
+        EP7["POST /api/chat\nMulti-turn NL chat\nvia GPT-4o agent"]
+        EP8["POST /api/run-pipeline\nTrigger pipeline\nprogrammatically"]
     end
 
     subgraph DataLayer["Data Layer"]
@@ -331,12 +331,14 @@ graph LR
     D3UI -->|"Fetch DAG data"| EP1
     D3UI -->|"Fetch summary"| EP3
     D3UI -->|"Load UI shell"| EP6
+    D3UI -->|"Click-to-chat query"| EP7
     AGENT -->|"Query lineage"| EP1
     AGENT -->|"Node detail"| EP2
     CURL -->|"Ad-hoc queries"| EP1
     CURL -->|"Ad-hoc queries"| EP2
     CURL -->|"Ad-hoc queries"| EP3
     CURL -->|"Health check"| EP4
+    CURL -->|"Trigger pipeline"| EP8
     PROM -->|"Scrape"| EP5
 
     EP1 -->|"load()"| LS
@@ -345,6 +347,8 @@ graph LR
     EP4 -->|"static response"| EP4
     EP5 -->|"generate_latest()"| OBS
     EP6 -->|"static file"| HTML
+    EP7 -->|"load() + agent turn"| LS
+    EP8 -->|"run_pipeline()"| LS
 ```
 
 ---
@@ -358,3 +362,41 @@ graph LR
 | No auth on API or agent | FastAPI has no authentication | Acceptable for local POC only. |
 | Agent session log append pattern | `agent_session_log.json` grows unbounded | Fine for POC; needs rotation in production. |
 | OpenAI gpt-4o dependency | External API call per agent turn | Requires network + API key; no fallback. |
+| POST /api/chat stateless design | Full `messages[]` array sent and returned each turn | Client owns conversation state; server remains stateless and horizontally scalable. |
+
+---
+
+## Design Changes — 2026-03-30
+
+### 1. Label-Match Fallback in `get_downstream`
+
+`get_downstream` previously required an exact `node_id` UUID. It now falls back to a case-insensitive partial label/attribute search when the supplied value is not a known UUID. The fallback mirrors the existing behaviour of `get_node_details`.
+
+Resolution rules (in priority order):
+1. Exact `node_id` UUID match — use directly.
+2. Label/attribute partial match returning exactly one node — resolve and proceed.
+3. Match returning 2–5 nodes — return a disambiguation list with a hint to supply `record_id`.
+4. Match returning >5 nodes — return a too-many-results error with a sample of labels.
+5. No match — return an error.
+
+### 2. `record_id` Disambiguation Parameter in `get_downstream`
+
+An optional `record_id` parameter was added to `get_downstream`. When supplied alongside a label query, candidate nodes are filtered to those whose `record_id` matches before applying the resolution rules above. If the filter produces zero candidates, the unfiltered match list is used as a fallback.
+
+### 3. Multi-Parent Edge Wiring in `LineageTracker.record_event()`
+
+`record_event()` gained a `parent_node_ids: list[str]` parameter. When supplied, one edge is created from each parent to the new node. This replaces the single `parent_node_id` parameter and the automatic record-chain parent — `parent_node_ids` takes full precedence when present.
+
+| Parameter | Behaviour |
+|---|---|
+| `parent_node_ids` provided | Create one edge per entry; ignore `parent_node_id` and record-chain. |
+| `parent_node_id` provided | Create one edge from that node; ignore record-chain. |
+| Neither provided | Auto-chain: create one edge from the latest node for `record_id`. |
+
+### 4. SILVER→GOLD Edge Wiring in `aggregate.py`
+
+The aggregate stage previously emitted GOLD nodes with no incoming edges, leaving them as orphans in the lineage graph. It now resolves the latest SILVER node for each source `record_id` via `LineageEmitter.get_latest_node_id()` and passes those IDs as `parent_node_ids` when emitting each GOLD node. This closes the SILVER→GOLD gap in the full RAW→BRONZE→SILVER→GOLD chain.
+
+### 5. Embedded Chat Drawer & Click-to-Chat UX
+
+The browser UI (`ui/index.html`) was extended with a collapsible chat drawer backed by `POST /api/chat`. Clicking any DAG node pre-fills the chat input with a contextual lineage question for that node, reducing the friction between visual exploration and conversational investigation. The chat layer is stateless on the server: the full `messages[]` array is round-tripped on each request.

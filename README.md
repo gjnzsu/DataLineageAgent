@@ -218,9 +218,28 @@ The agent loads the lineage graph once at startup then enters a REPL loop. Each 
 |---|---|---|---|
 | `get_pipeline_summary` | Overall pipeline statistics | — | record counts, stage durations, node/edge totals, orphan count |
 | `get_record_lineage` | Full upstream lineage chain for one record | `record_id` | ordered list of nodes from RAW to GOLD |
-| `get_downstream` | All downstream nodes from a given node | `node_id` | list of descendant nodes and edges |
+| `get_downstream` | All downstream nodes from a given node | `node_id` (UUID or partial label), optional `record_id` | list of descendant nodes and edges |
 | `list_transformations` | All TRANSFORM operations in the graph | optional `record_id` filter | transform nodes with BPS/PCT/category/tenor attributes |
-| `get_node_details` | Complete detail for a single node | `node_id` | full node dict including attributes and connected edges |
+| `get_node_details` | Complete detail for a single node | `node_id` (UUID or partial label) | full node dict including attributes and connected edges |
+
+---
+
+## UI & Chatbot Experience
+
+The browser UI (`ui/index.html`) provides two interaction modes:
+
+### D3.js DAG Visualisation
+
+An interactive force-directed graph renders the full lineage DAG. Nodes are colour-coded by medallion layer (RAW → BRONZE → SILVER → GOLD). Clicking any node opens a detail panel and — as of the latest release — **automatically pre-fills the chat input with a lineage question for that node**, so users can jump straight from a visual inspection to a natural-language query without retyping node identifiers.
+
+### Embedded Chat Drawer
+
+A collapsible chat drawer at the bottom of the UI provides multi-turn natural-language access to the GPT-4o lineage agent directly from the browser:
+
+- **Click-to-chat**: clicking a DAG node pre-fills the chat input with `"Tell me about the lineage of <node label>"`, reducing friction from visual exploration to conversational investigation.
+- **Multi-turn context**: the drawer maintains full conversation history (`messages[]`) across turns, so follow-up questions retain prior context.
+- **Send / Clear controls**: Enter key or Send button submits; Clear resets the conversation.
+- **Backed by `POST /api/chat`**: stateless on the server — full `messages[]` array is sent each turn and echoed back, keeping the API side horizontally scalable.
 
 ---
 
@@ -382,7 +401,7 @@ DataLineageAgent/
 │       ├── validate.py        # Stage 2
 │       ├── transform.py       # Stage 3
 │       └── aggregate.py       # Stage 4
-├── tests/                     # 27 tests across 4 modules
+├── tests/                     # 44 tests across 5 files
 ├── ui/
 │   └── index.html             # D3.js DAG visualization
 ├── DataLineageAgent_Architecture.drawio
@@ -431,16 +450,15 @@ python -m agent.agent
 python -m pytest tests/ -v
 ```
 
-35 tests across 6 modules:
+44 tests across 5 files:
 
-| Module | Tests | Coverage |
+| File | Tests | Coverage |
 |---|---|---|
-| Pipeline stages | ~10 | mock_provider, ingest, validate, transform, aggregate |
-| LineageTracker | ~6 | node creation, edge auto-chaining, complete() |
-| LineageStore | ~4 | read/write round-trip, missing file handling |
-| API endpoints | 9 | all routes incl. /api/chat, 404 handling, pipeline trigger |
-| Chat unit tests | 4 | chat_turn happy path, tool calls, error handling |
-| Agent tools | ~2 | tool dispatch and output |
+| `tests/test_agent_tools.py` | 16 | pipeline summary, record lineage, get_downstream (exact ID, label-match, disambiguation, too-many-matches, record_id narrowing), list_transformations, node details |
+| `tests/test_api.py` | 9 | all routes incl. /api/chat, 404 handling, pipeline trigger |
+| `tests/test_chat.py` | 4 | chat_turn happy path, tool calls, error handling, message history |
+| `tests/test_lineage.py` | 8 | node creation, single/multi-parent edge wiring, parent_node_ids precedence, get_latest_node_id, store round-trip, missing file |
+| `tests/test_pipeline.py` | 7 | mock_provider, validate, transform, rate categories, tenor normalisation, SILVER→GOLD edge wiring |
 
 ---
 
