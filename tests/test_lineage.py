@@ -59,3 +59,55 @@ def test_read_lineage_store_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(store_module, "STORE_PATH", tmp_path / "missing.json")
     with pytest.raises(FileNotFoundError):
         store_module.read_lineage_store()
+
+
+# --- Fix 3: parent_node_ids multi-parent edges ---
+
+def test_tracker_parent_node_ids_creates_multiple_edges():
+    tracker = LineageTracker(run_id="test-run")
+    p1 = tracker.record_event(stage="SILVER", operation="TRANSFORM",
+                               data_type="TRANSFORMED", label="S1", record_id="r1")
+    p2 = tracker.record_event(stage="SILVER", operation="TRANSFORM",
+                               data_type="TRANSFORMED", label="S2", record_id="r2")
+    child = tracker.record_event(
+        stage="GOLD", operation="AGGREGATE",
+        data_type="AGGREGATED", label="GOLD:AGG",
+        record_id="agg-1",
+        parent_node_ids=[p1, p2],
+    )
+    graph = tracker.get_graph()
+    # Two edges: p1->child and p2->child
+    edges_to_child = [e for e in graph["edges"] if e["target_node_id"] == child]
+    assert len(edges_to_child) == 2
+    source_ids = {e["source_node_id"] for e in edges_to_child}
+    assert source_ids == {p1, p2}
+
+
+def test_tracker_parent_node_ids_takes_precedence_over_chain():
+    # When parent_node_ids is supplied, the record-chain parent should NOT also be added
+    tracker = LineageTracker(run_id="test-run")
+    chain_parent = tracker.record_event(stage="BRONZE", operation="INGEST",
+                                         data_type="INGESTED", label="B", record_id="r1")
+    explicit_parent = tracker.record_event(stage="SILVER", operation="VALIDATE",
+                                            data_type="VALIDATED", label="S", record_id="r2")
+    child = tracker.record_event(
+        stage="GOLD", operation="AGGREGATE",
+        data_type="AGGREGATED", label="G",
+        record_id="r1",  # same record_id as chain_parent
+        parent_node_ids=[explicit_parent],
+    )
+    graph = tracker.get_graph()
+    edges_to_child = [e for e in graph["edges"] if e["target_node_id"] == child]
+    assert len(edges_to_child) == 1
+    assert edges_to_child[0]["source_node_id"] == explicit_parent
+
+
+def test_tracker_get_latest_node_id():
+    tracker = LineageTracker(run_id="test-run")
+    assert tracker.get_latest_node_id("rec-x") is None
+    n1 = tracker.record_event(stage="BRONZE", operation="INGEST",
+                               data_type="INGESTED", label="B", record_id="rec-x")
+    assert tracker.get_latest_node_id("rec-x") == n1
+    n2 = tracker.record_event(stage="SILVER", operation="VALIDATE",
+                               data_type="VALIDATED", label="S", record_id="rec-x")
+    assert tracker.get_latest_node_id("rec-x") == n2

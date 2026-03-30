@@ -81,3 +81,73 @@ def test_get_node_details(sample_graph):
 def test_get_node_details_unknown(sample_graph):
     result = get_node_details.execute(sample_graph, "bad-node")
     assert "error" in result
+
+
+# --- Fix 1: label-match fallback in get_downstream ---
+
+def test_get_downstream_by_label_single_match(sample_graph):
+    # "RAW:SOFR:overnight" is the full label of n1, unique in the fixture graph
+    result = get_downstream.execute(sample_graph, "RAW:SOFR:overnight")
+    assert "error" not in result
+    assert result["node_id"] == "n1"
+    downstream_ids = [n["node_id"] for n in result["downstream_nodes"]]
+    assert "n2" in downstream_ids
+
+
+def test_get_downstream_by_label_ambiguous(sample_graph):
+    # "SOFR:overnight" matches n1, n2, n3 (multiple nodes) — disambiguation hint
+    result = get_downstream.execute(sample_graph, "SOFR:overnight")
+    assert "matches" in result
+    assert "hint" in result
+    assert len(result["matches"]) >= 2
+
+
+def test_get_downstream_by_label_too_many_matches():
+    nodes = [
+        {"node_id": f"x{i}", "stage": "SILVER", "data_type": "TRANSFORMED",
+         "label": f"foo:bar:{i}", "record_id": f"rec-{i}", "attributes": {}}
+        for i in range(6)
+    ]
+    graph = {"run_id": "t", "nodes": nodes, "edges": []}
+    result = get_downstream.execute(graph, "foo")
+    assert "error" in result
+    assert "too many" in result["error"].lower()
+    assert "sample_labels" in result
+
+
+# --- Fix 2: record_id disambiguation ---
+
+def test_get_downstream_record_id_disambiguates():
+    # Two records share the same label prefix; record_id should narrow to correct node
+    nodes = [
+        {"node_id": "a1", "stage": "PROVIDER", "data_type": "RAW",
+         "label": "RAW:SOFR:overnight", "record_id": "rec-001", "attributes": {}},
+        {"node_id": "a2", "stage": "PROVIDER", "data_type": "RAW",
+         "label": "RAW:SOFR:overnight", "record_id": "rec-002", "attributes": {}},
+        {"node_id": "a3", "stage": "BRONZE", "data_type": "INGESTED",
+         "label": "BRONZE:SOFR:overnight", "record_id": "rec-001", "attributes": {}},
+    ]
+    edges = [
+        {"edge_id": "e1", "source_node_id": "a1", "target_node_id": "a3", "operation": "INGEST"},
+    ]
+    graph = {"run_id": "t", "nodes": nodes, "edges": edges}
+    result = get_downstream.execute(graph, "RAW:SOFR:overnight", record_id="rec-001")
+    assert "error" not in result
+    assert result["node_id"] == "a1"
+    downstream_ids = [n["node_id"] for n in result["downstream_nodes"]]
+    assert "a3" in downstream_ids
+
+
+def test_get_downstream_record_id_no_match_falls_back_to_all():
+    # record_id provided but no node matches it — falls back to unfiltered matches
+    nodes = [
+        {"node_id": "b1", "stage": "PROVIDER", "data_type": "RAW",
+         "label": "RAW:SOFR:overnight", "record_id": "rec-001", "attributes": {}},
+    ]
+    graph = {"run_id": "t", "nodes": nodes, "edges": []}
+    # record_id "rec-999" doesn't exist — should fall back to single match on rec-001
+    result = get_downstream.execute(graph, "RAW:SOFR:overnight", record_id="rec-999")
+    # Falls back to unfiltered: 1 match -> resolves to b1
+    assert "error" not in result
+    assert result["node_id"] == "b1"
+
