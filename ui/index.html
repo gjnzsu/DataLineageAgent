@@ -238,6 +238,15 @@ function renderGraph(graph) {
       d3.select(e.currentTarget).classed('selected', true);
       selectedNode = d;
       showNodeDetail(d);
+      // Pre-fill chat with a ready-to-ask lineage question
+      const rid = d.record_id ? ` (record_id: ${d.record_id})` : '';
+      chatInput.value = `Show me the full lineage of ${d.label}${rid}`;
+      // Expand drawer if collapsed
+      if (chatDrawer.classList.contains('collapsed')) {
+        chatDrawer.classList.remove('collapsed');
+        chatToggleBtn.textContent = '\u25bc';
+      }
+      chatInput.focus();
     });
 
   nodeSel.append('circle')
