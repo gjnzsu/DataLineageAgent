@@ -8,6 +8,10 @@ class LineageEmitter:
         self._tracker = tracker
         self._stage = stage
 
+    def get_latest_node_id(self, record_id: str) -> Optional[str]:
+        """Return the most recently emitted node_id for a given record_id."""
+        return self._tracker.get_latest_node_id(record_id)
+
     def emit(
         self,
         operation: str,
@@ -15,6 +19,7 @@ class LineageEmitter:
         label: str,
         record_id: Optional[str] = None,
         parent_node_id: Optional[str] = None,
+        parent_node_ids: Optional[list] = None,
         attributes: Optional[dict] = None,
     ) -> str:
         """Emit a lineage event and return the new node_id."""
@@ -25,5 +30,6 @@ class LineageEmitter:
             label=label,
             record_id=record_id,
             parent_node_id=parent_node_id,
+            parent_node_ids=parent_node_ids,
             attributes=attributes,
         )

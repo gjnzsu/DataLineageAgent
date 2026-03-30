@@ -52,6 +52,10 @@ class LineageTracker:
         # Maps record_id -> latest node_id for chaining
         self._record_latest_node: dict[str, str] = {}
 
+    def get_latest_node_id(self, record_id: str) -> Optional[str]:
+        """Return the most recently emitted node_id for a given record_id, or None."""
+        return self._record_latest_node.get(record_id)
+
     def record_event(
         self,
         stage: str,
@@ -60,6 +64,7 @@ class LineageTracker:
         label: str,
         record_id: Optional[str] = None,
         parent_node_id: Optional[str] = None,
+        parent_node_ids: Optional[list] = None,
         attributes: Optional[dict] = None,
     ) -> str:
         node_id = _uid()
@@ -74,15 +79,19 @@ class LineageTracker:
         )
         self._graph.nodes.append(asdict(node))
 
-        # Resolve parent: explicit > last node for this record_id
-        resolved_parent = parent_node_id
-        if resolved_parent is None and record_id and record_id in self._record_latest_node:
-            resolved_parent = self._record_latest_node[record_id]
+        # Collect all parent node ids
+        parents: list[str] = []
+        if parent_node_ids:
+            parents.extend(parent_node_ids)
+        elif parent_node_id:
+            parents.append(parent_node_id)
+        elif record_id and record_id in self._record_latest_node:
+            parents.append(self._record_latest_node[record_id])
 
-        if resolved_parent:
+        for p in parents:
             edge = LineageEdge(
                 edge_id=_uid(),
-                source_node_id=resolved_parent,
+                source_node_id=p,
                 target_node_id=node_id,
                 operation=operation,
             )

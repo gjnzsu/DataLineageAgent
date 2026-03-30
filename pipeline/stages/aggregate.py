@@ -53,12 +53,17 @@ def run(conn: duckdb.DuckDBPyConnection, emitter: LineageEmitter) -> list[dict]:
                   cnt, src_ids_str, computed_at])
 
             # Emit one AGGREGATE lineage event per gold record
-            # Parent nodes are the last TRANSFORM nodes for each source record
+            # Wire edges from the last SILVER node of each source record
+            silver_parent_ids = [
+                pid for rid in src_ids
+                if (pid := emitter.get_latest_node_id(rid)) is not None
+            ]
             emitter.emit(
                 operation="AGGREGATE",
                 data_type="AGGREGATED",
                 label=f"GOLD:{rate_type}:{tenor_norm}:{eff_date}",
                 record_id=agg_id,
+                parent_node_ids=silver_parent_ids if silver_parent_ids else None,
                 attributes={
                     "rate_type": rate_type,
                     "tenor_normalized": tenor_norm,
