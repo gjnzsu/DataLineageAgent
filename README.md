@@ -310,7 +310,9 @@ graph LR
 | `GET` | `/api/lineage` | Full lineage graph | `{run_id, nodes[], edges[]}` |
 | `GET` | `/api/lineage/node/{node_id}` | Single lineage node by ID | Node object or 404 |
 | `POST` | `/api/run-pipeline` | Trigger pipeline programmatically | `{status, metrics}` |
+| `POST` | `/api/chat` | Multi-turn natural language chat | `{answer, messages[]}` |
 | `GET` | `/api/metrics-report` | Last pipeline metrics report | `{pipeline, lineage}` JSON |
+| `GET` | `/health` | Health probe for GKE liveness check | `{status: "ok"}` |
 | `GET` | `/metrics` | Prometheus scrape endpoint | Prometheus text exposition |
 
 ---
@@ -429,14 +431,16 @@ python -m agent.agent
 python -m pytest tests/ -v
 ```
 
-27 tests across 4 modules:
+35 tests across 6 modules:
 
 | Module | Tests | Coverage |
 |---|---|---|
 | Pipeline stages | ~10 | mock_provider, ingest, validate, transform, aggregate |
 | LineageTracker | ~6 | node creation, edge auto-chaining, complete() |
 | LineageStore | ~4 | read/write round-trip, missing file handling |
-| API endpoints | ~7 | all 6 routes, 404 handling, pipeline trigger |
+| API endpoints | 9 | all routes incl. /api/chat, 404 handling, pipeline trigger |
+| Chat unit tests | 4 | chat_turn happy path, tool calls, error handling |
+| Agent tools | ~2 | tool dispatch and output |
 
 ---
 
@@ -463,6 +467,22 @@ The service is deployed on Google Kubernetes Engine. All deployment artifacts ar
 | Image | `gcr.io/gen-lang-client-0896070179/data-lineage-agent:latest` |
 | Persistent storage | 2Gi PVC (`standard-rwo`) mounted at `/app/data` |
 | Secret | `data-lineage-secrets` — `OPENAI_API_KEY` injected via K8s Secret |
+
+### Cloud Build (recommended)
+
+Use `cloudbuild.yaml` to build, test, push, and deploy in one step:
+
+```bash
+gcloud builds submit --config cloudbuild.yaml \
+  --substitutions \
+    _CLUSTER_NAME=helloworld-cluster,\
+    _CLUSTER_ZONE=us-central1,\
+    _IMAGE=gcr.io/gen-lang-client-0896070179/data-lineage-agent,\
+    SHORT_SHA=$(git rev-parse --short HEAD) \
+  --project gen-lang-client-0896070179
+```
+
+The pipeline: builds image → runs tests → pushes to GCR → deploys to GKE.
 
 ### Deploy from Scratch
 
